@@ -1,7 +1,5 @@
 package transaction
 
-import "github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
-
 const (
 	ContractInProc = iota
 
@@ -50,12 +48,3 @@ type Result struct {
 	ResultCode int32
 }
 
-type BatchAndWSet struct {
-	TransactionContexts []*Context
-	KvWrites            wsetcache.WriteSetCache
-}
-
-type BatchAndWSetSyncer struct {
-	BatchAndWSet  BatchAndWSet
-	WrittenSignal chan struct{}
-}

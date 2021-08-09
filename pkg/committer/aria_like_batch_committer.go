@@ -10,7 +10,7 @@ import (
 
 type AriaLikeBatchCommitter struct {
 	reserveWriteTable  *sync.Map
-	waitToWriteCh      chan transaction.BatchAndWSet
+	waitToWriteCh      chan BatchAndWSet
 	buildWriteSetCache func() wsetcache.WriteSetCache
 }
 
@@ -81,7 +81,7 @@ type AriaLikeBatchCommitter struct {
 //	return len(slice)
 //}
 
-func (ptc *AriaLikeBatchCommitter) Commit(batchAndWSet transaction.BatchAndWSet) {
+func (ptc *AriaLikeBatchCommitter) Commit(batchAndWSet BatchAndWSet) {
 	var wg sync.WaitGroup
 	for _, ctx := range batchAndWSet.TransactionContexts {
 		wg.Add(1)

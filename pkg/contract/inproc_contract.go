@@ -57,7 +57,7 @@ func (ipcs *InProcContractCallStub) DelState(key string) error {
 func (ipcs *InProcContractCallStub) GetState(key string) ([]byte, error) {
 	kvWrite := ipcs.writeCache.GetState(key)
 	if kvWrite.Key == "" {
-		return ipcs.storageSnapshot.GetState(key)
+		return ipcs.storageSnapshot.GetUnstableState(key)
 	} else {
 		if kvWrite.IsDelete {
 			return nil, nil

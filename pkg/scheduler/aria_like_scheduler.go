@@ -13,8 +13,8 @@ import (
 
 type AriaLikeScheduler struct {
 	waitToExecuteCh   chan transaction.Batch
-	waitToCommitCh    chan *transaction.BatchAndWSet
-	waitToFlushCh     chan *transaction.BatchAndWSetSyncer
+	waitToCommitCh    chan *committer.BatchAndWSet
+	waitToFlushCh     chan *storage.BatchAndWSetSyncer
 	readyToExecCh     chan struct{}
 	reserveWriteTable *sync.Map
 	semp              *semaphore.Weighted
@@ -62,7 +62,7 @@ func (as *AriaLikeScheduler) Start(ctx context.Context) {
 				return
 			case batchAndWSet := <-as.waitToCommitCh:
 				as.committer.Commit(batchAndWSet)
-				syncer := &transaction.BatchAndWSetSyncer{BatchAndWSet: *batchAndWSet, WrittenSignal: as.readyToExecCh}
+				syncer := &storage.BatchAndWSetSyncer{BatchAndWSet: *batchAndWSet, WrittenSignal: as.readyToExecCh}
 				as.waitToFlushCh <- syncer
 			}
 		}

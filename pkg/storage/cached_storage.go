@@ -2,12 +2,11 @@ package storage
 
 import (
 	"context"
-	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 )
 
 type CachedStorage struct {
-	waitToWriteBatchAndWSetCh chan *transaction.BatchAndWSetSyncer
+	waitToWriteBatchAndWSetCh chan *BatchAndWSetSyncer
 	latestWSetCache           [2]wsetcache.WriteSetCache
 	immutableWSetCache        wsetcache.WriteSetCache
 	storage                   Storage
@@ -24,6 +23,6 @@ func (cs *CachedStorage) Start(ctx context.Context) {
 	//}
 }
 
-func (cs *CachedStorage) Write(syncer *transaction.BatchAndWSetSyncer) {
+func (cs *CachedStorage) Write(syncer *BatchAndWSetSyncer) {
 	cs.waitToWriteBatchAndWSetCh <- syncer
 }

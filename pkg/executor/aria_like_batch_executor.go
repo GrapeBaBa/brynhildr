@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"github.com/GrapeBaBa/brynhildr/pkg/committer"
 	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 	"sync"
@@ -13,7 +14,7 @@ type AriaLikeBatchExecutor struct {
 	wsetCacheKind     string
 }
 
-func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *transaction.BatchAndWSet {
+func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.BatchAndWSet {
 	var wg sync.WaitGroup
 	txs := batch.GetTransactions()
 	tctxs := make([]*transaction.Context, len(txs))
@@ -29,7 +30,7 @@ func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *transaction.
 	}
 
 	wg.Wait()
-	batchAndUpdatedState := &transaction.BatchAndWSet{TransactionContexts: tctxs, KvWrites: wsetcache.NewWriteSetCache(abe.wsetCacheKind)}
+	batchAndUpdatedState := &committer.BatchAndWSet{TransactionContexts: tctxs, KvWrites: wsetcache.NewWriteSetCache(abe.wsetCacheKind)}
 	return batchAndUpdatedState
 }
 

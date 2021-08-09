@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
+	"github.com/GrapeBaBa/brynhildr/pkg/committer"
 )
 
 type Storage interface {
@@ -14,5 +14,10 @@ type Storage interface {
 	GetStableState(key string) ([]byte, error)
 
 	// Write writes the transaction batch and updated state to underlying storage.
-	Write(batchAndWSetSyncer *transaction.BatchAndWSetSyncer)
+	Write(batchAndWSetSyncer *BatchAndWSetSyncer)
+}
+
+type BatchAndWSetSyncer struct {
+	BatchAndWSet  committer.BatchAndWSet
+	WrittenSignal chan struct{}
 }
