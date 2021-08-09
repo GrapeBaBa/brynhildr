@@ -1,9 +1,12 @@
 package transaction
 
+import "github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
+
 const (
 	ContractInProc = iota
 
-	TxResultValid = 0
+	TxResultValid              = 0
+	TxResultDependencyConflict = 1
 )
 
 type KVRead struct {
@@ -17,8 +20,8 @@ type KVWrite struct {
 }
 
 type RWSet struct {
-	RSet []*KVRead
-	WSet []*KVWrite
+	RSet []KVRead
+	WSet []KVWrite
 }
 
 type TID interface {
@@ -34,10 +37,25 @@ type Transaction interface {
 
 type Batch interface {
 	GetTransactions() []Transaction
+	GetNumber() int64
 }
 
 type Context struct {
-	TX         Transaction
-	RWSet      *RWSet
+	TX     Transaction
+	RWSet  *RWSet
+	Result *Result
+}
+
+type Result struct {
 	ResultCode int32
+}
+
+type BatchAndWSet struct {
+	TransactionContexts []*Context
+	KvWrites            wsetcache.WriteSetCache
+}
+
+type BatchAndWSetSyncer struct {
+	BatchAndWSet  BatchAndWSet
+	WrittenSignal chan struct{}
 }

@@ -1,7 +1,7 @@
 package wsetcache
 
 import (
-	"github.com/GrapeBaBa/brynhild/pkg/transaction"
+	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 	"sync"
 )
 

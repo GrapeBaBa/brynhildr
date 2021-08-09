@@ -1,21 +1,27 @@
 package scheduler
 
 import (
-	"github.com/GrapeBaBa/brynhild/pkg/committer"
-	"github.com/GrapeBaBa/brynhild/pkg/executor"
-	"github.com/GrapeBaBa/brynhild/pkg/transaction"
+	"context"
+	"github.com/GrapeBaBa/brynhildr/pkg/committer"
+	"github.com/GrapeBaBa/brynhildr/pkg/executor"
+	"github.com/GrapeBaBa/brynhildr/pkg/storage"
+	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 	"github.com/pingcap/tidb/util/bitmap"
 	"golang.org/x/sync/semaphore"
 	"sync"
-	"sync/atomic"
 )
 
 type AriaLikeScheduler struct {
+	waitToExecuteCh   chan transaction.Batch
+	waitToCommitCh    chan *transaction.BatchAndWSet
+	waitToFlushCh     chan *transaction.BatchAndWSetSyncer
+	readyToExecCh     chan struct{}
 	reserveWriteTable *sync.Map
 	semp              *semaphore.Weighted
-	executorMgr       executor.Manager
+	batchExecutor     executor.BatchExecutor
 	batchBitMap       *bitmap.ConcurrentBitmap
-	committer         committer.Committer
+	committer         committer.BatchCommitter
+	storage           storage.Storage
 }
 
 func NewAriaLikeScheduler(concurLimit int64) *AriaLikeScheduler {
@@ -26,55 +32,50 @@ func NewAriaLikeScheduler(concurLimit int64) *AriaLikeScheduler {
 	return as
 }
 
-func (as *AriaLikeScheduler) reserveWrites(ctx *transaction.Context) {
-	ctxTID := ctx.TX.GetTID()
-	for _, write := range ctx.RWSet.WSet {
-		var currTIDValue atomic.Value
-		currTIDValue.Store(ctxTID)
-		// First store current tid for write key, it will success when this key is not exist previous
-		existTIDValue, loaded := as.reserveWriteTable.LoadOrStore(write.Key, currTIDValue)
-		// This key is already exist
-		if loaded {
-			existTID := existTIDValue.(*atomic.Value).Load().(transaction.TID)
-			// Compare current tid and existed tid, if current tid is smaller
-			if ctxTID.CompareTo(existTID) < 0 {
-				// Atomic store current tid in reserveWriteTable
-				swapped := existTIDValue.(*atomic.Value).CompareAndSwap(existTID, ctxTID)
-				// If not store success
-				if !swapped {
-					// Try to store current tid if still needed
-					for {
-						existTIDValue, _ = as.reserveWriteTable.Load(write.Key)
-						existTID = existTIDValue.(*atomic.Value).Load().(transaction.TID)
-						if ctxTID.CompareTo(existTID) < 0 {
-							swapped = existTIDValue.(*atomic.Value).CompareAndSwap(existTID, ctxTID)
-							if swapped {
-								break
-							}
-						} else {
-							break
-						}
-					}
-				}
+func (as *AriaLikeScheduler) Receive(batch transaction.Batch) {
+	as.waitToExecuteCh <- batch
+}
+
+func (as *AriaLikeScheduler) NotifyExec() {
+	as.readyToExecCh <- struct{}{}
+}
+
+func (as *AriaLikeScheduler) Start(ctx context.Context) {
+	go func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case batch := <-as.waitToExecuteCh:
+				<-as.readyToExecCh
+				batchAndWSet := as.batchExecutor.Execute(batch)
+				as.waitToCommitCh <- batchAndWSet
 			}
 		}
-	}
-}
 
-func (as *AriaLikeScheduler) execute(ctxs []*transaction.Context) {
-	var wg sync.WaitGroup
-	for _, tx := range ctxs {
-		wg.Add(1)
-		go func(ctx *transaction.Context, wg *sync.WaitGroup) {
-			as.executorMgr.Execute(ctx)
-			as.reserveWrites(ctx)
-			wg.Done()
-		}(tx, &wg)
-	}
+	}(ctx)
 
-	wg.Wait()
-}
+	go func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case batchAndWSet := <-as.waitToCommitCh:
+				as.committer.Commit(batchAndWSet)
+				syncer := &transaction.BatchAndWSetSyncer{BatchAndWSet: *batchAndWSet, WrittenSignal: as.readyToExecCh}
+				as.waitToFlushCh <- syncer
+			}
+		}
+	}(ctx)
 
-func (as *AriaLikeScheduler) commit(ctxs []*transaction.Context) {
-	as.committer.Commit(ctxs)
+	go func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case syncer := <-as.waitToFlushCh:
+				as.storage.Write(syncer)
+			}
+		}
+	}(ctx)
 }

@@ -1,9 +1,9 @@
 package contract
 
 import (
-	"github.com/GrapeBaBa/brynhild/pkg/storage"
-	"github.com/GrapeBaBa/brynhild/pkg/transaction"
-	"github.com/GrapeBaBa/brynhild/pkg/wsetcache"
+	"github.com/GrapeBaBa/brynhildr/pkg/storage"
+	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
+	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 )
 
 type InProcResponse struct {
@@ -43,13 +43,13 @@ func NewInProcContractCallStub(execTranContext *transaction.Context, writeCache 
 }
 
 func (ipcs *InProcContractCallStub) PutState(key string, value []byte) error {
-	kvWrite := &transaction.KVWrite{Key: key, IsDelete: false, Value: value}
+	kvWrite := transaction.KVWrite{Key: key, IsDelete: false, Value: value}
 	ipcs.execTranContext.RWSet.WSet = append(ipcs.execTranContext.RWSet.WSet, kvWrite)
 	return nil
 }
 
 func (ipcs *InProcContractCallStub) DelState(key string) error {
-	kvWrite := &transaction.KVWrite{Key: key, IsDelete: true, Value: nil}
+	kvWrite := transaction.KVWrite{Key: key, IsDelete: true, Value: nil}
 	ipcs.execTranContext.RWSet.WSet = append(ipcs.execTranContext.RWSet.WSet, kvWrite)
 	return nil
 }

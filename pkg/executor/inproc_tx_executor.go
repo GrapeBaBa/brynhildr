@@ -1,24 +1,20 @@
 package executor
 
 import (
-	"github.com/GrapeBaBa/brynhild/pkg/contract"
-	"github.com/GrapeBaBa/brynhild/pkg/storage"
-	"github.com/GrapeBaBa/brynhild/pkg/transaction"
-	"github.com/GrapeBaBa/brynhild/pkg/wsetcache"
+	"github.com/GrapeBaBa/brynhildr/pkg/contract"
+	"github.com/GrapeBaBa/brynhildr/pkg/storage"
+	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
+	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 	"strings"
 )
 
-type Manager struct {
-	executors map[int]Executor
-}
-
-type InProcExecutor struct {
+type InProcTransactionExecutor struct {
 	writeSetCache   wsetcache.WriteSetCache
 	storageSnapshot storage.Storage
 	contracts       map[string]contract.Contract
 }
 
-func (ipe *InProcExecutor) Execute(context *transaction.Context) {
+func (ipe *InProcTransactionExecutor) Execute(context *transaction.Context) {
 	tx := context.TX
 	//TODO:Prevent contract panic
 	ipccs := contract.NewInProcContractCallStub(context, ipe.writeSetCache, ipe.storageSnapshot)
@@ -31,6 +27,6 @@ func (ipe *InProcExecutor) Execute(context *transaction.Context) {
 	}
 }
 
-func (ae *Manager) Execute(context *transaction.Context) {
+func (ae *TransactionExecutorManager) Execute(context *transaction.Context) {
 	ae.executors[context.TX.GetExecutorType()].Execute(context)
 }

@@ -1,4 +1,4 @@
-module github.com/GrapeBaBa/brynhild
+module github.com/GrapeBaBa/brynhildrr
 
 go 1.17
 

@@ -1,9 +1,9 @@
 package committer
 
 import (
-	"github.com/GrapeBaBa/brynhild/pkg/transaction"
+	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 )
 
-type Committer interface {
-	Commit(ctxs []*transaction.Context)
+type BatchCommitter interface {
+	Commit(batchAndWSet *transaction.BatchAndWSet)
 }
