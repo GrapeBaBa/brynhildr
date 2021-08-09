@@ -1,12 +1,14 @@
 # Architecture
 
-## Pipeline Workflow
+## Brynhildr Pipeline Workflow
 
 ![brynhildr pipeline](brynhildr_pipeline.jpg)
 
 The design of Brynhildr is a classical pipeline workflow. There are three core phases: execution phase, commit phase and
 write to storage phase. Depend on native go channel mechanism, the pipeline is smoothly. The execution and commit phase,
 write to storage phase and sync to storage phase runs parallel.
+
+## AriaLikeScheduler Pipeline Workflow
 
 The all three phases have well-known interface definition, you can implement them by yourself. Of course brynhildr
 provides some interesting implementations. Currently, it has
