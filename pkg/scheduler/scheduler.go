@@ -7,5 +7,5 @@ import (
 
 type Scheduler interface {
 	Execute(batch transaction.Batch)
-	Commit(batchAndWSet *committer.BatchAndWSet)
+	Commit(batchAndWSet *committer.BatchExecutionResult)
 }

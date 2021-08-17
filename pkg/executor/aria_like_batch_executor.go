@@ -1,25 +1,31 @@
 package executor
 
 import (
-	"github.com/GrapeBaBa/brynhildr/pkg/committer"
-	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
-	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 	"sync"
 	"sync/atomic"
+
+	"github.com/GrapeBaBa/brynhildr/pkg/committer"
+	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 )
 
 type AriaLikeBatchExecutor struct {
 	txExecMgr         *TransactionExecutorManager
 	reserveWriteTable *sync.Map
-	wsetCacheKind     string
 }
 
-func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.BatchAndWSet {
+func NewAriaLikeBatchExecutor(txExecMgr *TransactionExecutorManager, reserveWriteTable *sync.Map) *AriaLikeBatchExecutor {
+	return &AriaLikeBatchExecutor{
+		txExecMgr:         txExecMgr,
+		reserveWriteTable: reserveWriteTable,
+	}
+}
+
+func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.BatchExecutionResult {
 	var wg sync.WaitGroup
 	txs := batch.GetTransactions()
 	tctxs := make([]*transaction.Context, len(txs))
 	for i, tx := range txs {
-		tctx := &transaction.Context{TX: tx, RWSet: &transaction.RWSet{RSet: make([]transaction.KVRead, 0), WSet: make([]transaction.KVWrite, 0)}, Result: &transaction.Result{}}
+		tctx := &transaction.Context{Transaction: tx, RWSet: &transaction.RWSet{RSet: make([]transaction.KVRead, 0), WSet: make([]transaction.KVWrite, 0)}, Result: &transaction.Result{}}
 		tctxs[i] = tctx
 		wg.Add(1)
 		go func(ctx *transaction.Context, wg *sync.WaitGroup) {
@@ -30,17 +36,17 @@ func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.Ba
 	}
 
 	wg.Wait()
-	batchAndUpdatedState := &committer.BatchAndWSet{TransactionContexts: tctxs, KvWrites: wsetcache.NewWriteSetCache(abe.wsetCacheKind)}
+	batchAndUpdatedState := &committer.BatchExecutionResult{TransactionContexts: tctxs, BatchNum: batch.GetNumber()}
 	return batchAndUpdatedState
 }
 
 func reserveWrites(ctx *transaction.Context, reserveWriteTable *sync.Map) {
-	ctxTID := ctx.TX.GetTID()
+	ctxTID := ctx.Transaction.GetTID()
 	for _, write := range ctx.RWSet.WSet {
 		var currTIDValue atomic.Value
 		currTIDValue.Store(ctxTID)
 		// First store current tid for write key, it will success when this key is not exist previous
-		existTIDValue, loaded := reserveWriteTable.LoadOrStore(write.Key, currTIDValue)
+		existTIDValue, loaded := reserveWriteTable.LoadOrStore(write.Key, &currTIDValue)
 		// This key is already exist
 		if loaded {
 			existTID := existTIDValue.(*atomic.Value).Load().(transaction.TID)

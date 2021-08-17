@@ -3,10 +3,9 @@ package contract
 import (
 	"github.com/GrapeBaBa/brynhildr/pkg/storage"
 	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
-	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 )
 
-type InProcResponse struct {
+type InProcResult struct {
 	Status int32
 
 	Message string
@@ -14,29 +13,27 @@ type InProcResponse struct {
 	Payload []byte
 }
 
-func (ipr *InProcResponse) GetStatus() int32 {
+func (ipr *InProcResult) GetStatus() int32 {
 	return ipr.Status
 }
 
-func (ipr *InProcResponse) GetMessage() string {
+func (ipr *InProcResult) GetMessage() string {
 	return ipr.Message
 }
 
-func (ipr *InProcResponse) GetPayload() []byte {
+func (ipr *InProcResult) GetPayload() []byte {
 	return ipr.Payload
 }
 
 type InProcContractCallStub struct {
 	execTranContext *transaction.Context
-	writeCache      wsetcache.WriteSetCache
-	storageSnapshot storage.Storage
+	storage         storage.Storage
 }
 
-func NewInProcContractCallStub(execTranContext *transaction.Context, writeCache wsetcache.WriteSetCache, storageSnapshot storage.Storage) *InProcContractCallStub {
+func NewInProcContractCallStub(execTranContext *transaction.Context, storage storage.Storage) *InProcContractCallStub {
 	ipcs := &InProcContractCallStub{
 		execTranContext: execTranContext,
-		writeCache:      writeCache,
-		storageSnapshot: storageSnapshot,
+		storage:         storage,
 	}
 
 	return ipcs
@@ -55,16 +52,11 @@ func (ipcs *InProcContractCallStub) DelState(key string) error {
 }
 
 func (ipcs *InProcContractCallStub) GetState(key string) ([]byte, error) {
-	kvWrite := ipcs.writeCache.GetState(key)
-	if kvWrite.Key == "" {
-		return ipcs.storageSnapshot.GetUnstableState(key)
-	} else {
-		if kvWrite.IsDelete {
-			return nil, nil
-		} else {
-			return kvWrite.Value, nil
-		}
-	}
+	return ipcs.storage.GetState(key)
+}
+
+func (ipcs *InProcContractCallStub) GetFunctionAndArgs() (string, []string) {
+	return ipcs.execTranContext.Transaction.GetFunctionAndArgs()
 }
 
 type InProcContractTransactionContext struct {

@@ -4,86 +4,27 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/GrapeBaBa/brynhildr/pkg/storage"
 	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
-	"github.com/GrapeBaBa/brynhildr/pkg/wsetcache"
 )
 
 type AriaLikeBatchCommitter struct {
-	reserveWriteTable  *sync.Map
-	waitToWriteCh      chan BatchAndWSet
-	buildWriteSetCache func() wsetcache.WriteSetCache
+	reserveWriteTable *sync.Map
+	waitToWriteCh     chan BatchExecutionResult
 }
 
-//type CopyOnWriteBatchAndStateQueue struct {
-//	queue atomic.Value
-//	mutex sync.Mutex
-//}
-//
-//func NewCopyOnWriteWriteSetCacheQueue() *CopyOnWriteBatchAndStateQueue {
-//	queueSlice := make([]transaction.BatchAndWSet, 0)
-//	cowq := &CopyOnWriteBatchAndStateQueue{}
-//	cowq.queue.Store(queueSlice)
-//
-//	return cowq
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) addLast(baus transaction.BatchAndWSet) {
-//	cowq.mutex.Lock()
-//	defer cowq.mutex.Unlock()
-//	oldSlice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	oldLen := len(oldSlice)
-//	newSlice := make([]transaction.BatchAndWSet, oldLen+1)
-//	copy(newSlice, oldSlice)
-//	newSlice[oldLen] = baus
-//	cowq.queue.Store(newSlice)
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) getFirstN(len int) []transaction.BatchAndWSet {
-//	slice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	return slice[0 : len-1]
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) getFirst() transaction.BatchAndWSet {
-//	slice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	return slice[0]
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) getLast() transaction.BatchAndWSet {
-//	slice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	return slice[len(slice)-1]
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) removeFirst() {
-//	cowq.mutex.Lock()
-//	defer cowq.mutex.Unlock()
-//	oldSlice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	oldLen := len(oldSlice)
-//	newSlice := make([]transaction.BatchAndWSet, oldLen-1)
-//	copy(newSlice, oldSlice[1:])
-//	cowq.queue.Store(newSlice)
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) removeFirstN(size int) {
-//	cowq.mutex.Lock()
-//	defer cowq.mutex.Unlock()
-//	oldSlice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	oldLen := len(oldSlice)
-//	newSlice := make([]transaction.BatchAndWSet, oldLen-size)
-//	if oldLen > size {
-//		copy(newSlice, oldSlice[size:])
-//	}
-//
-//	cowq.queue.Store(newSlice)
-//}
-//
-//func (cowq *CopyOnWriteBatchAndStateQueue) size() int {
-//	slice := cowq.queue.Load().([]transaction.BatchAndWSet)
-//	return len(slice)
-//}
+func NewAriaLikeBatchCommitter(reserveWriteTable *sync.Map) *AriaLikeBatchCommitter {
+	return &AriaLikeBatchCommitter{
+		reserveWriteTable: reserveWriteTable,
+		waitToWriteCh:     make(chan BatchExecutionResult),
+	}
+}
 
-func (ptc *AriaLikeBatchCommitter) Commit(batchAndWSet BatchAndWSet) {
+func (ptc *AriaLikeBatchCommitter) Commit(batchExecutionResult *BatchExecutionResult) *storage.BatchCommittedResult {
 	var wg sync.WaitGroup
-	for _, ctx := range batchAndWSet.TransactionContexts {
+	res := &storage.BatchCommittedResult{BatchNum: batchExecutionResult.BatchNum, TransactionContexts: make([]*transaction.Context, len(batchExecutionResult.TransactionContexts))}
+	for i, ctx := range batchExecutionResult.TransactionContexts {
+		res.TransactionContexts[i] = ctx
 		wg.Add(1)
 		go func(ctx *transaction.Context, wg *sync.WaitGroup) {
 			keysSlice := make([]string, 0)
@@ -102,12 +43,9 @@ func (ptc *AriaLikeBatchCommitter) Commit(batchAndWSet BatchAndWSet) {
 				}
 			}
 			keysMap = nil
-			exist := hasConflict(keysSlice, ctx.TX.GetTID(), ptc.reserveWriteTable)
+			exist := hasConflict(keysSlice, ctx.Transaction.GetTID(), ptc.reserveWriteTable)
 			if !exist {
 				ctx.Result.ResultCode = transaction.TxResultValid
-				for _, kvWrite := range ctx.RWSet.WSet {
-					batchAndWSet.KvWrites.PutState(kvWrite.Key, kvWrite)
-				}
 			} else {
 				ctx.Result.ResultCode = transaction.TxResultDependencyConflict
 			}
@@ -116,6 +54,7 @@ func (ptc *AriaLikeBatchCommitter) Commit(batchAndWSet BatchAndWSet) {
 	}
 
 	wg.Wait()
+	return res
 }
 
 func hasConflict(keys []string, tid transaction.TID, reserveWriteTable *sync.Map) bool {

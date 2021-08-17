@@ -1,17 +1,19 @@
 package contract
 
-type Response interface {
-	GetStatus() int32
+import "github.com/GrapeBaBa/brynhildr/pkg/transaction"
 
-	GetMessage() string
+const (
+	ExecStatusSuccess = iota
+)
 
-	GetPayload() []byte
-}
+const (
+	InProcTxExec = iota
+)
 
 type Contract interface {
-	Init(contractTransactionContext TransactionContext) Response
+	Init(contractTransactionContext TransactionContext) transaction.ExecResult
 
-	Invoke(contractTransactionContext TransactionContext) Response
+	Invoke(contractTransactionContext TransactionContext) transaction.ExecResult
 }
 
 type TransactionContext interface {
@@ -24,4 +26,6 @@ type CallStub interface {
 	GetState(key string) ([]byte, error)
 
 	DelState(key string) error
+
+	GetFunctionAndArgs() (string, []string)
 }

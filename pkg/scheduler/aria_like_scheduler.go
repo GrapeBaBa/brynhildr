@@ -6,76 +6,81 @@ import (
 	"github.com/GrapeBaBa/brynhildr/pkg/executor"
 	"github.com/GrapeBaBa/brynhildr/pkg/storage"
 	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
-	"github.com/pingcap/tidb/util/bitmap"
-	"golang.org/x/sync/semaphore"
 	"sync"
 )
 
 type AriaLikeScheduler struct {
-	waitToExecuteCh   chan transaction.Batch
-	waitToCommitCh    chan *committer.BatchAndWSet
-	waitToFlushCh     chan *storage.BatchAndWSetSyncer
-	readyToExecCh     chan struct{}
-	reserveWriteTable *sync.Map
-	semp              *semaphore.Weighted
-	batchExecutor     executor.BatchExecutor
-	batchBitMap       *bitmap.ConcurrentBitmap
-	committer         committer.BatchCommitter
-	storage           storage.Storage
+	waitToExecuteCh chan transaction.Batch
+	waitToCommitCh  chan *committer.BatchExecutionResult
+	waitToFlushCh   chan *storage.BatchCommittedResult
+	readyToExecCh   chan struct{}
+	batchExecutor   executor.BatchExecutor
+	committer       committer.BatchCommitter
+	storage         storage.Storage
 }
 
-func NewAriaLikeScheduler(concurLimit int64) *AriaLikeScheduler {
+func NewAriaLikeScheduler(txExecMgr *executor.TransactionExecutorManager, store storage.Storage) *AriaLikeScheduler {
+	reserveWriteTable := &sync.Map{}
+	batchExecutor := executor.NewAriaLikeBatchExecutor(txExecMgr, reserveWriteTable)
+	comm := committer.NewAriaLikeBatchCommitter(reserveWriteTable)
 	as := &AriaLikeScheduler{
-		semp: semaphore.NewWeighted(concurLimit),
+		waitToFlushCh:   make(chan *storage.BatchCommittedResult),
+		waitToCommitCh:  make(chan *committer.BatchExecutionResult),
+		waitToExecuteCh: make(chan transaction.Batch),
+		readyToExecCh:   make(chan struct{}),
+		batchExecutor:   batchExecutor,
+		committer:       comm,
+		storage:         store,
 	}
 
 	return as
 }
 
-func (as *AriaLikeScheduler) Receive(batch transaction.Batch) {
+func (as *AriaLikeScheduler) Handle(batch transaction.Batch) {
 	as.waitToExecuteCh <- batch
 }
 
-func (as *AriaLikeScheduler) NotifyExec() {
-	as.readyToExecCh <- struct{}{}
-}
-
 func (as *AriaLikeScheduler) Start(ctx context.Context) {
-	go func(ctx context.Context) {
+	go func() {
+		as.readyToExecCh <- struct{}{}
+	}()
+
+	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case batch := <-as.waitToExecuteCh:
 				<-as.readyToExecCh
-				batchAndWSet := as.batchExecutor.Execute(batch)
-				as.waitToCommitCh <- batchAndWSet
+				batchExecRes := as.batchExecutor.Execute(batch)
+				as.waitToCommitCh <- batchExecRes
 			}
 		}
 
-	}(ctx)
+	}()
 
-	go func(ctx context.Context) {
+	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case batchAndWSet := <-as.waitToCommitCh:
-				as.committer.Commit(batchAndWSet)
-				syncer := &storage.BatchAndWSetSyncer{BatchAndWSet: *batchAndWSet, WrittenSignal: as.readyToExecCh}
-				as.waitToFlushCh <- syncer
+			case batchExecRes := <-as.waitToCommitCh:
+				batchCommitRes := as.committer.Commit(batchExecRes)
+				batchCommitRes.WrittenSignal = as.readyToExecCh
+				as.waitToFlushCh <- batchCommitRes
 			}
 		}
-	}(ctx)
+	}()
 
-	go func(ctx context.Context) {
+	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case syncer := <-as.waitToFlushCh:
-				as.storage.Write(syncer)
+			case batchCommitRes := <-as.waitToFlushCh:
+				as.storage.Write(batchCommitRes)
 			}
 		}
-	}(ctx)
+	}()
+
 }
