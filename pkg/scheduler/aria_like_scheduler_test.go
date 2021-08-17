@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"github.com/GrapeBaBa/brynhildr/pkg/contract"
 	"github.com/GrapeBaBa/brynhildr/pkg/executor"
 	"github.com/GrapeBaBa/brynhildr/pkg/storage"
@@ -73,14 +72,14 @@ func TestAriaLikeScheduler_Start(t *testing.T) {
 			ExecType:   contract.InProcTxExec,
 			ContractId: "testContract",
 			Method:     "invoke",
-			Args:       []string{"addState", "key", "value", "payload1"},
+			Args:       []string{"addState", "key", "value1", "payload1"},
 		}}}
 		scheduler.Handle(batch)
 	}()
 
 	time.Sleep(1 * time.Second)
 	value, _ := store.GetState("key")
-	fmt.Println(value)
+	assert.Equal(t, string(value), "value")
 	canFunc()
 
 }

@@ -35,11 +35,13 @@ func (ms *MemStorage) GetState(key string) ([]byte, error) {
 
 func (ms *MemStorage) Write(batchCommittedResult *BatchCommittedResult) {
 	for _, tctx := range batchCommittedResult.TransactionContexts {
-		for _, kvWrite := range tctx.RWSet.WSet {
-			if kvWrite.IsDelete {
-				ms.store.Delete(kvWrite.Key)
-			} else {
-				ms.store.Store(kvWrite.Key, kvWrite.Value)
+		if tctx.Result.ResultCode == transaction.TxResultValid {
+			for _, kvWrite := range tctx.RWSet.WSet {
+				if kvWrite.IsDelete {
+					ms.store.Delete(kvWrite.Key)
+				} else {
+					ms.store.Store(kvWrite.Key, kvWrite.Value)
+				}
 			}
 		}
 	}
