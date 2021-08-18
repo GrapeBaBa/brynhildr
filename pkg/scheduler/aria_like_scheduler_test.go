@@ -81,5 +81,4 @@ func TestAriaLikeScheduler_Start(t *testing.T) {
 	value, _ := store.GetState("key")
 	assert.Equal(t, string(value), "value")
 	canFunc()
-
 }

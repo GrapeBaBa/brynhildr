@@ -51,9 +51,7 @@ func (as *AriaLikeScheduler) Start(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case batch := <-as.waitToExecuteCh:
-				<-as.readyToExecCh
-				batchExecRes := as.batchExecutor.Execute(batch)
-				as.waitToCommitCh <- batchExecRes
+				as.Execute(batch)
 			}
 		}
 
@@ -65,9 +63,7 @@ func (as *AriaLikeScheduler) Start(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case batchExecRes := <-as.waitToCommitCh:
-				batchCommitRes := as.committer.Commit(batchExecRes)
-				batchCommitRes.WrittenSignal = as.readyToExecCh
-				as.waitToFlushCh <- batchCommitRes
+				as.Commit(batchExecRes)
 			}
 		}
 	}()
@@ -78,9 +74,25 @@ func (as *AriaLikeScheduler) Start(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case batchCommitRes := <-as.waitToFlushCh:
-				as.storage.Write(batchCommitRes)
+				as.Flush(batchCommitRes)
 			}
 		}
 	}()
 
+}
+
+func (as *AriaLikeScheduler) Commit(batchExecutionResult *committer.BatchExecutionResult) {
+	batchCommitRes := as.committer.Commit(batchExecutionResult)
+	batchCommitRes.WrittenSignal = as.readyToExecCh
+	as.waitToFlushCh <- batchCommitRes
+}
+
+func (as *AriaLikeScheduler) Execute(batch transaction.Batch) {
+	<-as.readyToExecCh
+	batchExecRes := as.batchExecutor.Execute(batch)
+	as.waitToCommitCh <- batchExecRes
+}
+
+func (as *AriaLikeScheduler) Flush(batchCommitResult *storage.BatchCommittedResult) {
+	as.storage.Write(batchCommitResult)
 }
