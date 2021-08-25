@@ -7,6 +7,7 @@ import (
 )
 
 type Scheduler interface {
+	Handle(batch transaction.Batch)
 	Execute(batch transaction.Batch)
 	Commit(batchExecutionResult *committer.BatchExecutionResult)
 	Flush(batchCommitResult *storage.BatchCommittedResult)
