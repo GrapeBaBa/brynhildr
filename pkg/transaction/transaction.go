@@ -35,6 +35,7 @@ type Transaction interface {
 type Batch interface {
 	GetTransactions() []Transaction
 	GetNumber() int64
+	GetMetadata() []byte
 }
 
 type ExecResult interface {
@@ -114,4 +115,8 @@ func (ib *Int64Batch) GetTransactions() []Transaction {
 
 func (ib *Int64Batch) GetNumber() int64 {
 	return ib.Number
+}
+
+func (ib *Int64Batch) GetMetadata() []byte {
+	return nil
 }

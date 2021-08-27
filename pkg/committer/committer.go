@@ -8,6 +8,7 @@ import (
 type BatchExecutionResult struct {
 	TransactionContexts []*transaction.Context
 	BatchNum            int64
+	BatchMetadata       []byte
 }
 
 type BatchCommitter interface {

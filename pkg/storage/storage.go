@@ -17,6 +17,7 @@ type Storage interface {
 type BatchCommittedResult struct {
 	TransactionContexts []*transaction.Context
 	BatchNum            int64
+	BatchMetadata       []byte
 	WrittenSignal       chan struct{}
 	SyncedSignal        chan struct{}
 }
