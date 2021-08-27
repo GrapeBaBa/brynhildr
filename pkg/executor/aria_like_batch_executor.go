@@ -36,7 +36,7 @@ func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.Ba
 	}
 
 	wg.Wait()
-	batchAndUpdatedState := &committer.BatchExecutionResult{TransactionContexts: tctxs, BatchNum: batch.GetNumber()}
+	batchAndUpdatedState := &committer.BatchExecutionResult{TransactionContexts: tctxs, BatchNum: batch.GetNumber(), BatchMetadata: batch.GetMetadata()}
 	return batchAndUpdatedState
 }
 

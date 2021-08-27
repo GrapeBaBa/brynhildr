@@ -22,7 +22,7 @@ func NewAriaLikeBatchCommitter(reserveWriteTable *sync.Map) *AriaLikeBatchCommit
 
 func (ptc *AriaLikeBatchCommitter) Commit(batchExecutionResult *BatchExecutionResult) *storage.BatchCommittedResult {
 	var wg sync.WaitGroup
-	res := &storage.BatchCommittedResult{BatchNum: batchExecutionResult.BatchNum, TransactionContexts: make([]*transaction.Context, len(batchExecutionResult.TransactionContexts))}
+	res := &storage.BatchCommittedResult{BatchNum: batchExecutionResult.BatchNum, BatchMetadata: batchExecutionResult.BatchMetadata, TransactionContexts: make([]*transaction.Context, len(batchExecutionResult.TransactionContexts))}
 	for i, ctx := range batchExecutionResult.TransactionContexts {
 		res.TransactionContexts[i] = ctx
 		wg.Add(1)
