@@ -8,7 +8,7 @@ import (
 type Storage interface {
 	// GetState reads a value for a specific key. The value may be read from cache
 	// and not persistent yet.
-	GetState(key string) ([]byte, error)
+	GetState(ns, key string) ([]byte, error)
 
 	// Write writes the transaction batch and updated state to underlying storage.
 	Write(batchCommittedResult *BatchCommittedResult)
@@ -26,8 +26,8 @@ type MemStorage struct {
 	store sync.Map
 }
 
-func (ms *MemStorage) GetState(key string) ([]byte, error) {
-	value, _ := ms.store.Load(key)
+func (ms *MemStorage) GetState(ns, key string) ([]byte, error) {
+	value, _ := ms.store.Load(ns + key)
 	if value == nil {
 		return nil, nil
 	}
@@ -41,7 +41,7 @@ func (ms *MemStorage) Write(batchCommittedResult *BatchCommittedResult) {
 				if kvWrite.IsDelete {
 					ms.store.Delete(kvWrite.Key)
 				} else {
-					ms.store.Store(kvWrite.Key, kvWrite.Value)
+					ms.store.Store(tctx.Transaction.GetContractID()+kvWrite.Key, kvWrite.Value)
 				}
 			}
 		}

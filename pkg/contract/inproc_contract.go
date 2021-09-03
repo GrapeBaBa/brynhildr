@@ -52,7 +52,7 @@ func (ipcs *InProcContractCallStub) DelState(key string) error {
 }
 
 func (ipcs *InProcContractCallStub) GetState(key string) ([]byte, error) {
-	return ipcs.storage.GetState(key)
+	return ipcs.storage.GetState(ipcs.execTranContext.Transaction.GetContractID(), key)
 }
 
 func (ipcs *InProcContractCallStub) GetFunctionAndArgs() (string, []string) {

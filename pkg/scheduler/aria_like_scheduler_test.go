@@ -78,7 +78,7 @@ func TestAriaLikeScheduler_Start(t *testing.T) {
 	}()
 
 	time.Sleep(1 * time.Second)
-	value, _ := store.GetState("key")
+	value, _ := store.GetState("testContract", "key")
 	assert.Equal(t, string(value), "value")
 	canFunc()
 }
