@@ -9,18 +9,17 @@ import (
 )
 
 type AriaLikeBatchExecutor struct {
-	txExecMgr         *TransactionExecutorManager
-	reserveWriteTable *sync.Map
+	txExecMgr *TransactionExecutorManager
 }
 
-func NewAriaLikeBatchExecutor(txExecMgr *TransactionExecutorManager, reserveWriteTable *sync.Map) *AriaLikeBatchExecutor {
+func NewAriaLikeBatchExecutor(txExecMgr *TransactionExecutorManager) *AriaLikeBatchExecutor {
 	return &AriaLikeBatchExecutor{
-		txExecMgr:         txExecMgr,
-		reserveWriteTable: reserveWriteTable,
+		txExecMgr: txExecMgr,
 	}
 }
 
 func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.BatchExecutionResult {
+	reserveWriteTable := &sync.Map{}
 	var wg sync.WaitGroup
 	txs := batch.GetTransactions()
 	tctxs := make([]*transaction.Context, len(txs))
@@ -30,13 +29,19 @@ func (abe *AriaLikeBatchExecutor) Execute(batch transaction.Batch) *committer.Ba
 		wg.Add(1)
 		go func(ctx *transaction.Context, wg *sync.WaitGroup) {
 			abe.txExecMgr.Execute(ctx)
-			reserveWrites(ctx, abe.reserveWriteTable)
+			reserveWrites(ctx, reserveWriteTable)
 			wg.Done()
 		}(tctx, &wg)
 	}
 
 	wg.Wait()
-	batchAndUpdatedState := &committer.BatchExecutionResult{TransactionContexts: tctxs, BatchNum: batch.GetNumber(), BatchMetadata: batch.GetMetadata()}
+
+	immutableReserveWriteTable := &sync.Map{}
+	reserveWriteTable.Range(func(key, value interface{}) bool {
+		immutableReserveWriteTable.Store(key, value)
+		return true
+	})
+	batchAndUpdatedState := &committer.BatchExecutionResult{TransactionContexts: tctxs, BatchNum: batch.GetNumber(), BatchMetadata: batch.GetMetadata(), ReserveWritesTable: immutableReserveWriteTable}
 	return batchAndUpdatedState
 }
 

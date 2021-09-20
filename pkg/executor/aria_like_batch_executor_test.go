@@ -5,7 +5,6 @@ import (
 	"github.com/GrapeBaBa/brynhildr/pkg/storage"
 	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
 	"github.com/stretchr/testify/assert"
-	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -19,8 +18,7 @@ func TestNewAriaLikeBatchExecutor(t *testing.T) {
 	}
 
 	tem := NewTransactionExecutorManager(executors)
-	mem := &sync.Map{}
-	albe := NewAriaLikeBatchExecutor(tem, mem)
+	albe := NewAriaLikeBatchExecutor(tem)
 	batch := &transaction.Int64Batch{Number: 10, Transactions: []*transaction.Int64IDTransaction{{
 		Id:         &transaction.Int64TID{Id: 100},
 		ExecType:   contract.InProcTxExec,
@@ -36,7 +34,7 @@ func TestNewAriaLikeBatchExecutor(t *testing.T) {
 	}}}
 	res := albe.Execute(batch)
 	assert.Equal(t, int64(10), res.BatchNum)
-	confKey, _ := albe.reserveWriteTable.Load("key")
+	confKey, _ := res.ReserveWritesTable.Load("key")
 	tid := confKey.(*atomic.Value).Load().(*transaction.Int64TID)
 	assert.Equal(t, int64(100), tid.Id)
 

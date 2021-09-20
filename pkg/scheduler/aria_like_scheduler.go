@@ -6,7 +6,6 @@ import (
 	"github.com/GrapeBaBa/brynhildr/pkg/executor"
 	"github.com/GrapeBaBa/brynhildr/pkg/storage"
 	"github.com/GrapeBaBa/brynhildr/pkg/transaction"
-	"sync"
 )
 
 type AriaLikeScheduler struct {
@@ -20,9 +19,8 @@ type AriaLikeScheduler struct {
 }
 
 func NewAriaLikeScheduler(txExecMgr *executor.TransactionExecutorManager, store storage.Storage) *AriaLikeScheduler {
-	reserveWriteTable := &sync.Map{}
-	batchExecutor := executor.NewAriaLikeBatchExecutor(txExecMgr, reserveWriteTable)
-	comm := committer.NewAriaLikeBatchCommitter(reserveWriteTable)
+	batchExecutor := executor.NewAriaLikeBatchExecutor(txExecMgr)
+	comm := committer.NewAriaLikeBatchCommitter()
 	as := &AriaLikeScheduler{
 		waitToFlushCh:   make(chan *storage.BatchCommittedResult),
 		waitToCommitCh:  make(chan *committer.BatchExecutionResult),

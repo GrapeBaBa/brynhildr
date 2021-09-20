@@ -9,14 +9,12 @@ import (
 )
 
 type AriaLikeBatchCommitter struct {
-	reserveWriteTable *sync.Map
-	waitToWriteCh     chan BatchExecutionResult
+	waitToWriteCh chan BatchExecutionResult
 }
 
-func NewAriaLikeBatchCommitter(reserveWriteTable *sync.Map) *AriaLikeBatchCommitter {
+func NewAriaLikeBatchCommitter() *AriaLikeBatchCommitter {
 	return &AriaLikeBatchCommitter{
-		reserveWriteTable: reserveWriteTable,
-		waitToWriteCh:     make(chan BatchExecutionResult),
+		waitToWriteCh: make(chan BatchExecutionResult),
 	}
 }
 
@@ -43,7 +41,7 @@ func (ptc *AriaLikeBatchCommitter) Commit(batchExecutionResult *BatchExecutionRe
 				}
 			}
 			keysMap = nil
-			exist := hasConflict(keysSlice, ctx.Transaction.GetTID(), ptc.reserveWriteTable)
+			exist := hasConflict(keysSlice, ctx.Transaction.GetTID(), batchExecutionResult.ReserveWritesTable)
 			if !exist {
 				ctx.Result.ResultCode = transaction.TxResultValid
 			} else {

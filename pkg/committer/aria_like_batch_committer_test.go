@@ -11,9 +11,7 @@ import (
 )
 
 func TestNewAriaLikeBatchCommitter(t *testing.T) {
-	mem := &sync.Map{}
-	committer := NewAriaLikeBatchCommitter(mem)
-	assert.Exactly(t, committer.reserveWriteTable, mem)
+	committer := NewAriaLikeBatchCommitter()
 	assert.Equal(t, len(committer.waitToWriteCh), 0)
 }
 
@@ -77,8 +75,10 @@ func TestAriaLikeBatchCommitter_Commit(t *testing.T) {
 				},
 			},
 		},
+		ReserveWritesTable: mem,
 	}
-	albc := NewAriaLikeBatchCommitter(mem)
+
+	albc := NewAriaLikeBatchCommitter()
 	comRes := albc.Commit(beres)
 	assert.Equal(t, int64(20), comRes.BatchNum)
 	assert.Equal(t, comRes.TransactionContexts[0].Result.ResultCode, int32(transaction.TxResultValid))

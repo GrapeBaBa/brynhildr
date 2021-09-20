@@ -36,12 +36,12 @@ func TestNewAriaLikeScheduler(t *testing.T) {
 	contracts := map[string]contract.Contract{
 		"testContract": &TestContract{},
 	}
+	store := &storage.MemStorage{}
 	executors := map[int]executor.TransactionExecutor{
-		contract.InProcTxExec: executor.NewInProcTransactionExecutor(&storage.MemStorage{}, contracts),
+		contract.InProcTxExec: executor.NewInProcTransactionExecutor(store, contracts),
 	}
 
 	tem := executor.NewTransactionExecutorManager(executors)
-	store := &storage.MemStorage{}
 	scheduler := NewAriaLikeScheduler(tem, store)
 	assert.Exactly(t, scheduler.storage, store)
 }
@@ -50,12 +50,12 @@ func TestAriaLikeScheduler_Start(t *testing.T) {
 	contracts := map[string]contract.Contract{
 		"testContract": &TestContract{},
 	}
+	store := &storage.MemStorage{}
 	executors := map[int]executor.TransactionExecutor{
-		contract.InProcTxExec: executor.NewInProcTransactionExecutor(&storage.MemStorage{}, contracts),
+		contract.InProcTxExec: executor.NewInProcTransactionExecutor(store, contracts),
 	}
 
 	tem := executor.NewTransactionExecutorManager(executors)
-	store := &storage.MemStorage{}
 	scheduler := NewAriaLikeScheduler(tem, store)
 	ctx, canFunc := context.WithCancel(context.Background())
 	scheduler.Start(ctx)
@@ -74,11 +74,28 @@ func TestAriaLikeScheduler_Start(t *testing.T) {
 			Method:     "invoke",
 			Args:       []string{"addState", "key", "value1", "payload1"},
 		}}}
+
 		scheduler.Handle(batch)
+
+		batch1 := &transaction.Int64Batch{Number: 11, Transactions: []*transaction.Int64IDTransaction{{
+			Id:         &transaction.Int64TID{Id: 102},
+			ExecType:   contract.InProcTxExec,
+			ContractId: "testContract",
+			Method:     "invoke",
+			Args:       []string{"addState", "key", "value2", "payload2"},
+		}, {
+			Id:         &transaction.Int64TID{Id: 103},
+			ExecType:   contract.InProcTxExec,
+			ContractId: "testContract",
+			Method:     "invoke",
+			Args:       []string{"addState", "key", "value3", "payload3"},
+		}}}
+
+		scheduler.Handle(batch1)
 	}()
 
 	time.Sleep(1 * time.Second)
 	value, _ := store.GetState("testContract", "key")
-	assert.Equal(t, string(value), "value")
+	assert.Equal(t, string(value), "value2")
 	canFunc()
 }
