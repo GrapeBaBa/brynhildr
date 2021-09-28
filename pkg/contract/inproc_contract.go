@@ -52,6 +52,8 @@ func (ipcs *InProcContractCallStub) DelState(key string) error {
 }
 
 func (ipcs *InProcContractCallStub) GetState(key string) ([]byte, error) {
+	kvRead := transaction.KVRead{Key: key}
+	ipcs.execTranContext.RWSet.RSet = append(ipcs.execTranContext.RWSet.RSet, kvRead)
 	return ipcs.storage.GetState(ipcs.execTranContext.Transaction.GetContractID(), key)
 }
 
